@@ -138,7 +138,7 @@ def main():
     plt.plot(list_epoch, list_Acc5)
     plt.xlabel('Epoch')
     plt.ylabel('Accuracy')
-    plt.lengend(['ACC1','ACC5'])
+    plt.legend(['ACC1','ACC5'])
     plt.show()
     avg_train_time = train_time / (args.epochs-start_epoch)
     avg_valid_time = validate_time / (args.epochs-start_epoch)
