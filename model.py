@@ -52,7 +52,7 @@ class Inception_A(nn.Module):
         return torch.cat([y1,y2,y3,y4], 1)
 
 class Inception_B(nn.Module):
-    def __init__(self, in_planes, n1x1, n3x3red, n3x3, n5x5red, n5x5, pool_planes):
+    def __init__(self, in_planes, n1x1, n3x3red, n3x3, n7x7red, n7x7, pool_planes):
         super(Inception_B,self).__init__()
         # 1x1 conv branch
         self.b1 = nn.Sequential(
@@ -74,17 +74,17 @@ class Inception_B(nn.Module):
 
         # 1x1 conv -> 1x7 conv branch -> 7x1 conv -> 1x7 conv -> 7x1 conv branch
         self.b3 = nn.Sequential(
-            nn.Conv2d(in_planes, n5x5red, kernel_size=1),
-            nn.BatchNorm2d(n5x5red),
+            nn.Conv2d(in_planes, n7x7red, kernel_size=1),
+            nn.BatchNorm2d(n7x7red),
             nn.ReLU(True),
-            nn.Conv2d(n5x5red, n5x5, kernel_size=(7, 1), padding=(3, 0)),
-            nn.Conv2d(n5x5, n5x5, kernel_size=(1, 7), padding=(0, 3)),
-            nn.BatchNorm2d(n5x5),
+            nn.Conv2d(n7x7red, n7x7, kernel_size=(7, 1), padding=(3, 0)),
+            nn.Conv2d(n7x7, n7x7, kernel_size=(1, 7), padding=(0, 3)),
+            nn.BatchNorm2d(n7x7),
             nn.ReLU(True),
 
-            nn.Conv2d(n5x5red, n5x5, kernel_size=(7, 1), padding=(3, 0)),
-            nn.Conv2d(n5x5, n5x5, kernel_size=(1, 7), padding=(0, 3)),
-            nn.BatchNorm2d(n5x5),
+            nn.Conv2d(n7x7, n7x7, kernel_size=(7, 1), padding=(3, 0)),
+            nn.Conv2d(n7x7, n7x7, kernel_size=(1, 7), padding=(0, 3)),
+            nn.BatchNorm2d(n7x7),
             nn.ReLU(True),
         )
         # 3x3 pool -> 1x1 conv branch
@@ -137,10 +137,10 @@ class Inception_C(nn.Module):
             nn.Conv2d(in_planes, n5x5red, kernel_size=1),
             nn.BatchNorm2d(n5x5red),
             nn.ReLU(True),
-            nn.Conv2d(n5x5, n5x5, kernel_size=3, padding=1),
+            nn.Conv2d(n5x5red, n5x5, kernel_size=3, padding=1),
             nn.BatchNorm2d(n5x5),
             nn.ReLU(True),
-            nn.Conv2d(n5x5red, n5x5, kernel_size=(1,3), padding=(0,1)),
+            nn.Conv2d(n5x5, n5x5, kernel_size=(1,3), padding=(0,1)),
             nn.BatchNorm2d(n5x5),
             nn.ReLU(True),
         )
@@ -150,10 +150,10 @@ class Inception_C(nn.Module):
             nn.Conv2d(in_planes, n5x5red, kernel_size=1),
             nn.BatchNorm2d(n5x5red),
             nn.ReLU(True),
-            nn.Conv2d(n5x5, n5x5, kernel_size=3, padding=1),
+            nn.Conv2d(n5x5red, n5x5, kernel_size=3, padding=1),
             nn.BatchNorm2d(n5x5),
             nn.ReLU(True),
-            nn.Conv2d(n5x5red, n5x5, kernel_size=(3, 1), padding=(1, 0)),
+            nn.Conv2d(n5x5, n5x5, kernel_size=(3, 1), padding=(1, 0)),
             nn.BatchNorm2d(n5x5),
             nn.ReLU(True),
         )
@@ -189,40 +189,46 @@ class GoogLeNet(nn.Module):
         self.a3 = Inception_A(192,  64,  96, 128, 16, 32, 32)
         self.b3 = Inception_A(256, 128, 128, 192, 32, 96, 64)
         self.maxpool = nn.MaxPool2d(3, stride=2, padding=1)
-        # size
-        self.a4 = Inception_B(480, 192,  96, 208, 16,  48,  64)
+        # size 128, 480, 16, 16
+        self.a4 = Inception_B(480, 192,  96, 208, 48,  48,  64)
         self.b4 = Inception_B(512, 160, 112, 224, 24,  64,  64)
         self.c4 = Inception_B(512, 128, 128, 256, 24,  64,  64)
         self.d4 = Inception_B(512, 112, 144, 288, 32,  64,  64)
         self.e4 = Inception_B(528, 256, 160, 320, 32, 128, 128)
 
         self.a5 = Inception_C(832, 256, 160, 320, 32, 128, 128)
-        self.b5 = Inception_C(832, 384, 192, 384, 48, 128, 128)
+        self.b5 = Inception_C(1280, 384, 192, 384, 48, 128, 128)
 
         self.avgpool = nn.AvgPool2d(8, stride=1)
-        self.linear = nn.Linear(1024, 100)
+        self.linear = nn.Linear(1536, 100)
 
     def forward(self, x):
-        print("forward start")
+        #print(x.size()) // [128, 3, 32, 32]
         out = self.pre_layers(x)
-        print(out.size())
+        # print(out.size()) //[128, 192, 32, 32]
         out = self.a3(out)
-        print(out.size())
+        #print(out.size()) // [128, 256, 32, 32]
         out = self.b3(out)
-        print(out.size())
+        #print(out.size()) // [128, 480, 32, 32]
         out = self.maxpool(out)
-        print(out.size())
         out = self.a4(out)
-        print(out.size())
         out = self.b4(out)
-        print(out.size())
         out = self.c4(out)
         out = self.d4(out)
         out = self.e4(out)
         out = self.maxpool(out)
+        #print(out.size()) # torch.Size([128, 832, 8, 8])
         out = self.a5(out)
+        # print(out.size()) #torch.Size([128, 1280, 8, 8])
+
         out = self.b5(out)
+        # print(out.size()) #torch.Size([128, 1536, 8, 8])
+
         out = self.avgpool(out)
+        # print(out.size()) #torch.Size([128, 1536, 1, 1])
+
         out = out.view(out.size(0), -1)
+        # print(out.size()) #torch.Size([128, 1536])
+
         out = self.linear(out)
         return out
